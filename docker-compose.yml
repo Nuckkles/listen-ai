@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  stat:
+    build:
+      context: ./stat
+    ports:
+      - "8002:8002"
+    environment:
+      - STAT_PORT=8002
+      # Overriding the default "../data/..." path so it matches the container's volume mount
+      - SQLITE_PATH=/app/data/listenai.db
+    volumes:
+      - ./data:/app/data
+    networks:
+      - app-network
+
+  nlp:
+    build:
+      context: ./nlp
+    ports:
+      - "8001:8001"
+    environment:
+      - NLP_PORT=8001
+    volumes:
+      - ./data:/app/data
+    networks:
+      - app-network
+
+  gateway:
+    build:
+      context: ./gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - GATEWAY_PORT=8000
+      # Using Docker service names to resolve URLs instead of localhost
+      - STAT_URL=http://stat:8002
+      - NLP_URL=http://nlp:8001
+    depends_on:
+      - stat
+      - nlp
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "8501:8501" # Streamlit's default port mapped to the host
+    environment:
+      # Pointing the frontend to the gateway container
+      - GATEWAY_URL=http://gateway:8000
+    depends_on:
+      - gateway
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
